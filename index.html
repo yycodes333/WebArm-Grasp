@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>??????????</title>
+    <!-- ??supabase js? -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        *{box-sizing: border-box;font-family:system-ui}
+        .container{max-width:1100px;margin:20px auto;padding:0 15px;}
+        .form-box{border:1px solid #ccc;padding:20px;border-radius:8px;margin-bottom:30px;background:#f8f9fa;}
+        .row{margin:10px 0;}
+        label{display:inline-block;width:120px;}
+        input,textarea{width:320px;padding:8px;border:1px solid #aaa;border-radius:4px;}
+        textarea{height:70px;}
+        button{padding:9px 22px;background:#2563eb;color:white;border:none;border-radius:4px;cursor:pointer;font-size:15px;}
+        table{width:100%;border-collapse: collapse;}
+        th,td{border:1px solid #aaa;padding:10px;text-align:left;}
+        th{background:#e9edf7;}
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>????????????????</h2>
+
+    <!-- ???? -->
+    <div class="form-box">
+        <h3>????</h3>
+        <div class="row">
+            <label>???</label>
+            <input type="text" id="inp_name" placeholder="??????">
+        </div>
+        <div class="row">
+            <label>???????</label>
+            <textarea id="inp_content" placeholder="????????"></textarea>
+        </div>
+        <div class="row">
+            <label>??????</label>
+            <textarea id="inp_help" placeholder="???????"></textarea>
+        </div>
+        <div class="row">
+            <label></label>
+            <button onclick="submitRecord()">????</button>
+        </div>
+    </div>
+
+    <!-- ???? -->
+    <h3>??????</h3>
+    <table>
+        <thead>
+        <tr>
+            <th>??</th>
+            <th>??</th>
+            <th>??????</th>
+            <th>?????</th>
+        </tr>
+        </thead>
+        <tbody id="table_body">
+        </tbody>
+    </table>
+</div>
+
+<script>
+// ========== ??????supabase??? ==========
+const SUPABASE_URL = "url:https://rzidngvtemuvzrrybqai.supabase.co";
+const SUPABASE_ANON_KEY = "publish key: sb_publishable_A8KS2Y-pOveCsnbOKL0JVw_ooKEfu2y";
+// ==============================================
+
+const { createClient } = supabase;
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ????
+async function renderTable(){
+    const {data,error}=await supabase
+        .from('daily_record')
+        .select('*')
+        .order('create_time',{asc:false}); //???????
+    if(error) return console.error(error);
+    const tbody=document.getElementById("table_body");
+    tbody.innerHTML="";
+    data.forEach(item=>{
+        const tr=document.createElement("tr");
+        //?????
+        const t=new Date(item.create_time).toLocaleString("zh-CN");
+        tr.innerHTML=`
+            <td>${escapeHtml(item.name??"")}</td>
+            <td>${t}</td>
+            <td>${escapeHtml(item.finish_content??"")}</td>
+            <td>${escapeHtml(item.project_help??"")}</td>
+        `;
+        tbody.appendChild(tr);
+    })
+}
+
+//????
+async function submitRecord(){
+    const name=document.getElementById("inp_name").value.trim();
+    const finish_content=document.getElementById("inp_content").value.trim();
+    const project_help=document.getElementById("inp_help").value.trim();
+    if(!name){
+        alert("?????");
+        return;
+    }
+    const {error}=await supabase.from("daily_record").insert([{
+        name:name,
+        finish_content:finish_content,
+        project_help:project_help
+    }])
+    if(error){
+        alert("????:"+error.message);
+    }else{
+        //?????
+        document.getElementById("inp_content").value="";
+        document.getElementById("inp_help").value="";
+    }
+}
+
+// ??????????????????????
+function startRealtime(){
+    supabase
+        .channel('table-change')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'daily_record'
+        }, payload => {
+            console.log("???????",payload);
+            renderTable();
+        })
+        .subscribe()
+}
+
+//???XSS
+function escapeHtml(str){
+    if(!str) return "";
+    return str.replace(/[&<>"']/g, m=>{
+        const map={"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"};
+        return map[m];
+    })
+}
+
+window.onload=()=>{
+    renderTable();
+    startRealtime();
+}
+</script>
+</body>
+</html>
