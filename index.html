@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>??????????</title>
-    <!-- ??supabase js? -->
+    <title>项目每日记录共享表格</title>
+    <!-- 引入supabase js库 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         *{box-sizing: border-box;font-family:system-ui}
@@ -22,38 +22,38 @@
 </head>
 <body>
 <div class="container">
-    <h2>????????????????</h2>
+    <h2>项目每日工作记录（多人实时共享）</h2>
 
-    <!-- ???? -->
+    <!-- 填写表单 -->
     <div class="form-box">
-        <h3>????</h3>
+        <h3>新增记录</h3>
         <div class="row">
-            <label>???</label>
-            <input type="text" id="inp_name" placeholder="??????">
+            <label>姓名：</label>
+            <input type="text" id="inp_name" placeholder="输入你的姓名">
         </div>
         <div class="row">
-            <label>???????</label>
-            <textarea id="inp_content" placeholder="????????"></textarea>
+            <label>今日完成内容：</label>
+            <textarea id="inp_content" placeholder="填写今日完成内容"></textarea>
         </div>
         <div class="row">
-            <label>??????</label>
-            <textarea id="inp_help" placeholder="???????"></textarea>
+            <label>对项目帮助：</label>
+            <textarea id="inp_help" placeholder="填写对项目帮助"></textarea>
         </div>
         <div class="row">
             <label></label>
-            <button onclick="submitRecord()">????</button>
+            <button onclick="submitRecord()">提交记录</button>
         </div>
     </div>
 
-    <!-- ???? -->
-    <h3>??????</h3>
+    <!-- 数据表格 -->
+    <h3>共享记录列表</h3>
     <table>
         <thead>
         <tr>
-            <th>??</th>
-            <th>??</th>
-            <th>??????</th>
-            <th>?????</th>
+            <th>姓名</th>
+            <th>时间</th>
+            <th>今日完成内容</th>
+            <th>对项目帮助</th>
         </tr>
         </thead>
         <tbody id="table_body">
@@ -62,7 +62,7 @@
 </div>
 
 <script>
-// ========== ??????supabase??? ==========
+// ========== 替换成你自己supabase的信息 ==========
 const SUPABASE_URL = "url:https://rzidngvtemuvzrrybqai.supabase.co";
 const SUPABASE_ANON_KEY = "publish key: sb_publishable_A8KS2Y-pOveCsnbOKL0JVw_ooKEfu2y";
 // ==============================================
@@ -70,18 +70,18 @@ const SUPABASE_ANON_KEY = "publish key: sb_publishable_A8KS2Y-pOveCsnbOKL0JVw_oo
 const { createClient } = supabase;
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ????
+// 渲染表格
 async function renderTable(){
     const {data,error}=await supabase
         .from('daily_record')
         .select('*')
-        .order('create_time',{asc:false}); //???????
+        .order('create_time',{asc:false}); //最新的放最上面
     if(error) return console.error(error);
     const tbody=document.getElementById("table_body");
     tbody.innerHTML="";
     data.forEach(item=>{
         const tr=document.createElement("tr");
-        //?????
+        //格式化时间
         const t=new Date(item.create_time).toLocaleString("zh-CN");
         tr.innerHTML=`
             <td>${escapeHtml(item.name??"")}</td>
@@ -93,13 +93,13 @@ async function renderTable(){
     })
 }
 
-//????
+//提交表单
 async function submitRecord(){
     const name=document.getElementById("inp_name").value.trim();
     const finish_content=document.getElementById("inp_content").value.trim();
     const project_help=document.getElementById("inp_help").value.trim();
     if(!name){
-        alert("?????");
+        alert("请填写姓名");
         return;
     }
     const {error}=await supabase.from("daily_record").insert([{
@@ -108,15 +108,15 @@ async function submitRecord(){
         project_help:project_help
     }])
     if(error){
-        alert("????:"+error.message);
+        alert("提交失败:"+error.message);
     }else{
-        //?????
+        //清空输入框
         document.getElementById("inp_content").value="";
         document.getElementById("inp_help").value="";
     }
 }
 
-// ??????????????????????
+// 开启实时监听：别人新增数据，页面自动刷新表格
 function startRealtime(){
     supabase
         .channel('table-change')
@@ -125,13 +125,13 @@ function startRealtime(){
             schema: 'public',
             table: 'daily_record'
         }, payload => {
-            console.log("???????",payload);
+            console.log("数据库发生变化",payload);
             renderTable();
         })
         .subscribe()
 }
 
-//???XSS
+//简单防XSS
 function escapeHtml(str){
     if(!str) return "";
     return str.replace(/[&<>"']/g, m=>{
