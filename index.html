@@ -2,147 +2,173 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>项目每日记录共享表格</title>
-    <!-- 引入supabase js库 -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <title>项目每日工作记录（多人实时共享）</title>
     <style>
-        *{box-sizing: border-box;font-family:system-ui}
-        .container{max-width:1100px;margin:20px auto;padding:0 15px;}
-        .form-box{border:1px solid #ccc;padding:20px;border-radius:8px;margin-bottom:30px;background:#f8f9fa;}
-        .row{margin:10px 0;}
-        label{display:inline-block;width:120px;}
-        input,textarea{width:320px;padding:8px;border:1px solid #aaa;border-radius:4px;}
-        textarea{height:70px;}
-        button{padding:9px 22px;background:#2563eb;color:white;border:none;border-radius:4px;cursor:pointer;font-size:15px;}
-        table{width:100%;border-collapse: collapse;}
-        th,td{border:1px solid #aaa;padding:10px;text-align:left;}
-        th{background:#e9edf7;}
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .form-box {
+            background-color: #f7f8fa;
+            border: 1px solid #ddd;
+            border-radius:8px;
+            padding:24px;
+            max-width:750px;
+            margin:0 auto 32px;
+        }
+        .form-item {
+            margin-bottom:14px;
+        }
+        label {
+            display: inline-block;
+            width:120px;
+            font-weight:bold;
+        }
+        input,textarea {
+            width:420px;
+            padding:8px;
+            border:1px solid #bbb;
+            border-radius:4px;
+            font-size:14px;
+        }
+        textarea {
+            min-height:80px;
+        }
+        button {
+            background:#2563eb;
+            color:white;
+            border:none;
+            border-radius:4px;
+            padding:10px 22px;
+            font-size:15px;
+            cursor:pointer;
+        }
+        table {
+            width:100%;
+            border-collapse: collapse;
+        }
+        th,td {
+            border:1px solid #aaa;
+            padding:10px;
+        }
+        th {
+            background:#e8ebf7;
+        }
     </style>
 </head>
 <body>
-<div class="container">
-    <h2>项目每日工作记录（多人实时共享）</h2>
+    <h1 style="text-align:center;">项目每日工作记录（多人实时共享）</h1>
 
-    <!-- 填写表单 -->
     <div class="form-box">
         <h3>新增记录</h3>
-        <div class="row">
+        <div class="form-item">
             <label>姓名：</label>
-            <input type="text" id="inp_name" placeholder="输入你的姓名">
+            <input id="inp-name" type="text">
         </div>
-        <div class="row">
+        <div class="form-item">
             <label>今日完成内容：</label>
-            <textarea id="inp_content" placeholder="填写今日完成内容"></textarea>
+            <textarea id="inp-finish"></textarea>
         </div>
-        <div class="row">
+        <div class="form-item">
             <label>对项目帮助：</label>
-            <textarea id="inp_help" placeholder="填写对项目帮助"></textarea>
+            <textarea id="inp-help"></textarea>
         </div>
-        <div class="row">
+        <div class="form-item">
             <label></label>
             <button onclick="submitRecord()">提交记录</button>
         </div>
     </div>
 
-    <!-- 数据表格 -->
     <h3>共享记录列表</h3>
     <table>
         <thead>
-        <tr>
-            <th>姓名</th>
-            <th>时间</th>
-            <th>今日完成内容</th>
-            <th>对项目帮助</th>
-        </tr>
+            <tr>
+                <th>姓名</th>
+                <th>时间</th>
+                <th>今日完成内容</th>
+                <th>对项目帮助</th>
+            </tr>
         </thead>
-        <tbody id="table_body">
-        </tbody>
+        <tbody id="table-body"></tbody>
     </table>
-</div>
 
+<!-- supabase CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-// ========== 替换成你自己supabase的信息 ==========
-const SUPABASE_URL = "url:https://rzidngvtemuvzrrybqai.supabase.co";
-const SUPABASE_ANON_KEY = "publish key: sb_publishable_A8KS2Y-pOveCsnbOKL0JVw_ooKEfu2y";
-// ==============================================
+// ============ 已填入你的密钥 ============
+const SUPABASE_URL = "https://rzidngvtemuvzrrybqai.sb.co";
+const SUPABASE_ANON_KEY = "sb_publishable_A8KS2Y-pOveCsnbOKL0JVw_ooKEfu2y";
+// =========================================
 
 const { createClient } = supabase;
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// 修改变量名为 sb，规避CDN全局supabase变量冲突
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// 渲染表格
-async function renderTable(){
-    const {data,error}=await supabase
-        .from('daily_record')
-        .select('*')
-        .order('create_time',{asc:false}); //最新的放最上面
-    if(error) return console.error(error);
-    const tbody=document.getElementById("table_body");
-    tbody.innerHTML="";
-    data.forEach(item=>{
-        const tr=document.createElement("tr");
-        //格式化时间
-        const t=new Date(item.create_time).toLocaleString("zh-CN");
-        tr.innerHTML=`
-            <td>${escapeHtml(item.name??"")}</td>
-            <td>${t}</td>
-            <td>${escapeHtml(item.finish_content??"")}</td>
-            <td>${escapeHtml(item.project_help??"")}</td>
+//渲染表格
+async function renderTable() {
+    const { data, error } = await sb
+        .from("daily_record")
+        .select("*")
+        .order("created_at", {asc: false});
+
+    if(error){
+        console.error("读取表格错误", error);
+        return;
+    }
+    const tableBody = document.querySelector("#table-body");
+    tableBody.innerHTML = "";
+    data.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${row.name ?? ""}</td>
+            <td>${new Date(row.created_at).toLocaleString()}</td>
+            <td>${row.finish_content ?? ""}</td>
+            <td>${row.help_content ?? ""}</td>
         `;
-        tbody.appendChild(tr);
+        tableBody.appendChild(tr);
     })
 }
 
-//提交表单
+//提交记录
 async function submitRecord(){
-    const name=document.getElementById("inp_name").value.trim();
-    const finish_content=document.getElementById("inp_content").value.trim();
-    const project_help=document.getElementById("inp_help").value.trim();
+    const name = document.querySelector("#inp-name").value.trim();
+    const finish_content = document.querySelector("#inp-finish").value.trim();
+    const help_content = document.querySelector("#inp-help").value.trim();
+
     if(!name){
         alert("请填写姓名");
         return;
     }
-    const {error}=await supabase.from("daily_record").insert([{
-        name:name,
-        finish_content:finish_content,
-        project_help:project_help
-    }])
+
+    const {error} = await sb.from("daily_record").insert([{
+        name,
+        finish_content,
+        help_content
+    }]);
+
     if(error){
-        alert("提交失败:"+error.message);
+        console.error("插入失败", error);
+        alert("提交失败："+error.message);
     }else{
         //清空输入框
-        document.getElementById("inp_content").value="";
-        document.getElementById("inp_help").value="";
+        document.querySelector("#inp-name").value = "";
+        document.querySelector("#inp-finish").value = "";
+        document.querySelector("#inp-help").value = "";
+        renderTable();
     }
 }
 
-// 开启实时监听：别人新增数据，页面自动刷新表格
-function startRealtime(){
-    supabase
-        .channel('table-change')
-        .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'daily_record'
-        }, payload => {
-            console.log("数据库发生变化",payload);
-            renderTable();
-        })
-        .subscribe()
-}
+//开启实时监听数据库变化
+sb.channel('table_change')
+.on('postgres_changes',
+    {event:'*', schema:'public', table:'daily_record'},
+    (payload)=>{ renderTable(); }
+).subscribe();
 
-//简单防XSS
-function escapeHtml(str){
-    if(!str) return "";
-    return str.replace(/[&<>"']/g, m=>{
-        const map={"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"};
-        return map[m];
-    })
-}
-
-window.onload=()=>{
+window.onload = function(){
     renderTable();
-    startRealtime();
 }
 </script>
 </body>
