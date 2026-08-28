@@ -1,175 +1,202 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <title>项目每日工作记录（多人实时共享）</title>
-    <style>
-        body {
-            font-family: system-ui, sans-serif;
-            max-width: 1200px;
-            margin: 40px auto;
-            padding: 0 20px;
-        }
-        .form-box {
-            background-color: #f7f8fa;
-            border: 1px solid #ddd;
-            border-radius:8px;
-            padding:24px;
-            max-width:750px;
-            margin:0 auto 32px;
-        }
-        .form-item {
-            margin-bottom:14px;
-        }
-        label {
-            display: inline-block;
-            width:120px;
-            font-weight:bold;
-        }
-        input,textarea {
-            width:420px;
-            padding:8px;
-            border:1px solid #bbb;
-            border-radius:4px;
-            font-size:14px;
-        }
-        textarea {
-            min-height:80px;
-        }
-        button {
-            background:#2563eb;
-            color:white;
-            border:none;
-            border-radius:4px;
-            padding:10px 22px;
-            font-size:15px;
-            cursor:pointer;
-        }
-        table {
-            width:100%;
-            border-collapse: collapse;
-        }
-        th,td {
-            border:1px solid #aaa;
-            padding:10px;
-        }
-        th {
-            background:#e8ebf7;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>团队每日协同看板 (Supabase 驱动)</title>
+  
+  <!-- 样式设计 -->
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif; background-color: #f8fafc; padding: 24px; color: #1e293b; }
+    .container { max-width: 1100px; margin: 0 auto; background: #ffffff; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 20px; }
+    h1 { font-size: 20px; color: #0f172a; display: flex; align-items: center; gap: 8px; }
+    .status-badge { font-size: 12px; background: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 20px; font-weight: 500; }
+
+    /* 表单布局 */
+    .form-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; margin-bottom: 24px; }
+    .form-grid { display: grid; grid-template-columns: 140px 160px 1fr 1fr auto; gap: 12px; align-items: end; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    label { font-size: 13px; font-weight: 600; color: #475569; }
+    input, textarea { padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; outline: none; background: #fff; }
+    textarea { height: 40px; resize: vertical; }
+    input:focus, textarea:focus { border-color: #3b82f6; ring: 2px rgba(59, 130, 246, 0.2); }
+    
+    .btn-submit { background-color: #2563eb; color: white; border: none; padding: 0 20px; height: 40px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .btn-submit:hover { background-color: #1d4ed8; }
+    .btn-submit:disabled { background-color: #94a3b8; cursor: not-allowed; }
+
+    /* 表格布局 */
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { text-align: left; padding: 14px 16px; border-bottom: 1px solid #f1f5f9; font-size: 14px; line-height: 1.5; vertical-align: top; }
+    th { background-color: #f8fafc; color: #64748b; font-weight: 600; font-size: 13px; }
+    tr:hover { background-color: #fafbfc; }
+    .name-col { font-weight: 600; color: #334155; }
+    .date-col { color: #64748b; font-size: 13px; }
+    .btn-del { color: #ef4444; background: none; border: none; cursor: pointer; font-size: 13px; }
+    .btn-del:hover { text-decoration: underline; }
+    .empty-state { text-align: center; color: #94a3b8; padding: 40px 0; }
+  </style>
+
+  <!-- 引入 Supabase JS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <h1 style="text-align:center;">项目每日工作记录（多人实时共享）</h1>
 
-    <div class="form-box">
-        <h3>新增记录</h3>
-        <div class="form-item">
-            <label>姓名：</label>
-            <input id="inp-name" type="text">
-        </div>
-        <div class="form-item">
-            <label>今日完成内容：</label>
-            <textarea id="inp-finish"></textarea>
-        </div>
-        <div class="form-item">
-            <label>对项目帮助：</label>
-            <textarea id="inp-help"></textarea>
-        </div>
-        <div class="form-item">
-            <label></label>
-            <button onclick="submitRecord()">提交记录</button>
-        </div>
+  <div class="container">
+    <div class="header">
+      <h1>📊 项目协作每日同步表格</h1>
+      <span class="status-badge">🟢 实时同步已就绪</span>
     </div>
 
-    <h3>共享记录列表</h3>
+    <!-- 填写区域 -->
+    <div class="form-box">
+      <form id="reportForm" class="form-grid">
+        <div class="form-group">
+          <label>姓名</label>
+          <input type="text" id="name" placeholder="如：李四" required>
+        </div>
+        <div class="form-group">
+          <label>时间</label>
+          <input type="date" id="report_date" required>
+        </div>
+        <div class="form-group">
+          <label>今日完成内容</label>
+          <textarea id="task_done" placeholder="完成了哪些模块/任务..." required></textarea>
+        </div>
+        <div class="form-group">
+          <label>对项目帮助</label>
+          <textarea id="project_help" placeholder="推进了什么进度/解决了什么问题..." required></textarea>
+        </div>
+        <button type="submit" id="submitBtn" class="btn-submit">提交记录</button>
+      </form>
+    </div>
+
+    <!-- 列表展示区域 -->
     <table>
-        <thead>
-            <tr>
-                <th>姓名</th>
-                <th>时间</th>
-                <th>今日完成内容</th>
-                <th>对项目帮助</th>
-            </tr>
-        </thead>
-        <tbody id="table-body"></tbody>
+      <thead>
+        <tr>
+          <th style="width: 12%;">姓名</th>
+          <th style="width: 14%;">时间</th>
+          <th style="width: 35%;">今日完成内容</th>
+          <th style="width: 31%;">对项目帮助</th>
+          <th style="width: 8%;">操作</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="5" class="empty-state">数据加载中...</td></tr>
+      </tbody>
     </table>
+  </div>
 
-<!-- supabase CDN -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-// ============ 已填入你的密钥 ============
-const SUPABASE_URL = "https://rzidngvtemuvzrrybqai.sb.co";
-const SUPABASE_ANON_KEY = "sb_publishable_A8KS2Y-pOveCsnbOKL0JVw_ooKEfu2y";
-// =========================================
+  <script>
+    // ==========================================
+    // 1. 配置你的 Supabase 参数（在此处填入你的信息）
+    // ==========================================
+    const SUPABASE_URL = "https://fasjzezbboukzjlgpszy.supabase.co";  // 替换为你的 Project URL
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhc2p6ZXpiYm91a3pqbGdwc3p5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4OTE4NzMsImV4cCI6MjEwMzQ2Nzg3M30.qZv4ecNd_DDhcADq7x_8mlg9JBxhYpWWxMfnYevhkS0";          // 替换为你的 anon key
 
-const { createClient } = supabase;
-// 修改变量名为 sb，规避CDN全局supabase变量冲突
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { createClient } = supabase;
+    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-//渲染表格
-async function renderTable() {
-    const { data, error } = await sb
-        .from("daily_record")
-        .select("*")
-        .order("created_at", {asc: false});
+    // 默认日期为当天
+    document.getElementById('report_date').valueAsDate = new Date();
 
-    if(error){
-        console.error("读取表格错误", error);
+    // ==========================================
+    // 2. 数据读取与渲染
+    // ==========================================
+    async function loadData() {
+      const { data, error } = await client
+        .from('daily_reports')
+        .select('*')
+        .order('report_date', { ascending: false })
+        .order('id', { ascending: false });
+
+      if (error) {
+        console.error('加载失败:', error);
         return;
+      }
+
+      renderTable(data);
     }
-    const tableBody = document.querySelector("#table-body");
-    tableBody.innerHTML = "";
-    data.forEach(row => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${row.name ?? ""}</td>
-            <td>${new Date(row.created_at).toLocaleString()}</td>
-            <td>${row.finish_content ?? ""}</td>
-            <td>${row.help_content ?? ""}</td>
-        `;
-        tableBody.appendChild(tr);
-    })
-}
 
-//提交记录
-async function submitRecord(){
-    const name = document.querySelector("#inp-name").value.trim();
-    const finish_content = document.querySelector("#inp-finish").value.trim();
-    const help_content = document.querySelector("#inp-help").value.trim();
-
-    if(!name){
-        alert("请填写姓名");
+    function renderTable(list) {
+      const tbody = document.getElementById('tableBody');
+      if (!list || list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">暂无记录，快在上方填入第一条内容吧！</td></tr>';
         return;
+      }
+
+      tbody.innerHTML = list.map(item => `
+        <tr>
+          <td class="name-col">${escapeHtml(item.name)}</td>
+          <td class="date-col">${escapeHtml(item.report_date)}</td>
+          <td>${escapeHtml(item.task_done).replace(/\n/g, '<br>')}</td>
+          <td>${escapeHtml(item.project_help).replace(/\n/g, '<br>')}</td>
+          <td><button class="btn-del" onclick="deleteRecord(${item.id})">删除</button></td>
+        </tr>
+      `).join('');
     }
 
-    const {error} = await sb.from("daily_record").insert([{
-        name,
-        finish_content,
-        help_content
-    }]);
+    // ==========================================
+    // 3. 提交新数据
+    // ==========================================
+    const form = document.getElementById('reportForm');
+    const submitBtn = document.getElementById('submitBtn');
 
-    if(error){
-        console.error("插入失败", error);
-        alert("提交失败："+error.message);
-    }else{
-        //清空输入框
-        document.querySelector("#inp-name").value = "";
-        document.querySelector("#inp-finish").value = "";
-        document.querySelector("#inp-help").value = "";
-        renderTable();
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      submitBtn.disabled = true;
+      submitBtn.innerText = '提交中...';
+
+      const payload = {
+        name: document.getElementById('name').value.trim(),
+        report_date: document.getElementById('report_date').value,
+        task_done: document.getElementById('task_done').value.trim(),
+        project_help: document.getElementById('project_help').value.trim()
+      };
+
+      const { error } = await client.from('daily_reports').insert([payload]);
+
+      if (error) {
+        alert('提交失败：' + error.message);
+      } else {
+        document.getElementById('task_done').value = '';
+        document.getElementById('project_help').value = '';
+      }
+      submitBtn.disabled = false;
+      submitBtn.innerText = '提交记录';
+    });
+
+    // ==========================================
+    // 4. 删除数据
+    // ==========================================
+    window.deleteRecord = async function(id) {
+      if (!confirm('确定删除此条记录吗？')) return;
+      const { error } = await client.from('daily_reports').delete().eq('id', id);
+      if (error) alert('删除失败: ' + error.message);
+    };
+
+    // ==========================================
+    // 5. 核心：开启 Realtime 实时监听广播
+    // ==========================================
+    client
+      .channel('public:daily_reports')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_reports' }, () => {
+        // 只要有任何增/删/改，立即刷新本页面视图
+        loadData();
+      })
+      .subscribe();
+
+    // 工具函数：防止 XSS 攻击
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     }
-}
 
-//开启实时监听数据库变化
-sb.channel('table_change')
-.on('postgres_changes',
-    {event:'*', schema:'public', table:'daily_record'},
-    (payload)=>{ renderTable(); }
-).subscribe();
-
-window.onload = function(){
-    renderTable();
-}
-</script>
+    // 页面初次载入
+    loadData();
+  </script>
 </body>
 </html>
